@@ -1,0 +1,14 @@
+/.build/
+/build/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/core
+/core.*
+/runs/
+/latest-run
+/SHA256SUMS
+*.log
+*.bundle
+/.superpowers/
+/.omp/

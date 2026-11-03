@@ -1,0 +1,21 @@
+--- a/module/zfs/zil.c
++++ b/module/zfs/zil.c
+@@ -1222,6 +1222,18 @@
+ 		return (0);
+ 	}
+ 
++	/*
++	 * The checkpoint already owns claimed log blocks and BRT references.
++	 * Preserve its original replay limits rather than claiming them again.
++	 * A rewind's minimum claim TXG differs from the new first import TXG.
++	 */
++	if (zilog->zl_spa->spa_uberblock.ub_checkpoint_txg != 0) {
++		ASSERT3U(zh->zh_claim_txg, !=, 0);
++		ASSERT3U(zh->zh_claim_txg, <=, first_txg);
++		dmu_objset_disown(os, B_FALSE, FTAG);
++		return (0);
++	}
++
+ 	/*
+ 	 * If we are not rewinding and opening the pool normally, then
+ 	 * the min_claim_txg should be equal to the first txg of the pool.
