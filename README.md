@@ -11,17 +11,19 @@ Both are native, version-pinned offline writers. A verified backup and exclusive
 
 Use a native **Linux** build and maintenance environment with **OpenZFS 2.4.4**. The tools link OpenZFS private userspace interfaces, not a stable public ABI; do not substitute another OpenZFS release or an arbitrary system `libzpool`. `convert-ddt` accepts a loaded 2.4.4 kernel module; `dedup-fdt` additionally requires the exact module version **`2.4.4-1`**. Use matching kernel and administrative userspace tools. No other platform/version is supported here.
 
-Build dependencies include Bash, a C compiler, GNU make, pkg-config, curl (for the initial download), tar/gzip, patch, sha256sum, and development headers/libraries for zlib, OpenSSL, UUID, blkid, udev, tirpc and Jansson. The validators link Jansson with `-ljansson`. Install the OpenZFS userspace build prerequisites for your distribution; package names vary. Python 3 and the installed ZFS administration commands are needed for the Python validation harnesses.
+Build dependencies include **CMake 3.24 or newer**, a C compiler, GNU make (also when using Ninja), pkg-config, patch, tar/gzip, and development headers/libraries for zlib, OpenSSL, UUID, blkid, udev, tirpc and Jansson. Ninja is optional; CMake also supports Unix Makefiles. Install the OpenZFS userspace build prerequisites for your distribution; package names vary. Python 3 is required for the default Python tests, and the installed ZFS administration commands are needed for root integration fixtures.
 
 The namespace-isolated checkpoint/COW fixtures require Python 3.12 or newer (`os.unshare`); install that version when running the complete fixture set.
 
 From the repository root:
 
 ```sh
-./build.sh -j 8
+cmake -S . -B build
+cmake --build build --parallel 8
+ctest --test-dir build --output-on-failure
 ```
 
-The build downloads and SHA256-verifies the OpenZFS 2.4.4 release archive, builds its userspace libraries and produces:
+The first build downloads and SHA256-verifies the pinned OpenZFS 2.4.4 release archive, applies the maintained native correction, and builds fresh userspace static libraries inside the CMake binary directory. It does not reuse an installed `libzpool` or generate OpenZFS files in the source checkout. Single-configuration builds produce:
 
 | Artifact | Purpose |
 | --- | --- |
@@ -36,7 +38,29 @@ The build downloads and SHA256-verifies the OpenZFS 2.4.4 release archive, build
 | `build/dedup_fdt_workers_test` | Worker tests |
 | `build/rebuild_ddt_quota_test` | Native DDT quota-policy tests |
 
-`build.sh` accepts `-j JOBS`, `--reconfigure`, and the standard `CC`, `CPPFLAGS`, `CFLAGS`, `LDFLAGS`, `LIBS`, `PKG_CONFIG`, `PKG_CONFIG_PATH`, `MAKE` and `JOBS` environment variables. `MAKE` names one executable. Dependencies staged under `.build/deps/usr` are detected; host runtime libraries are preferred. Existing configuration is reused unless configuration variables or `--reconfigure` request reconfiguration. Use a checkout path without whitespace or make-special characters.
+Choose a generator on the first configure: add `-G Ninja` for Ninja or `-G "Unix Makefiles"` for GNU make. Use a separate binary directory when changing generators. The same `cmake --build` and `ctest` commands work with either generator. `-DCMAKE_BUILD_TYPE=Release` is supported; native private-header ABI flags and test assertions remain enabled independently of build type.
+
+### Dependency and offline configuration
+
+The upstream OpenZFS build uses GNU make regardless of the CMake generator. `OPENZFS_BUILD_JOBS` is a positive integer controlling that build's parallelism; its default is the detected CPU count capped at 8. It is separate from `cmake --build --parallel`, which controls project compilation.
+
+Use a binary directory and native dependency paths without whitespace, quotes or Make-special characters; the upstream Autoconf/Make build cannot safely represent those paths. The CMake configure step rejects unsupported paths before starting that build.
+
+For an offline build, supply an existing OpenZFS 2.4.4 release archive with `OPENZFS_ARCHIVE`. The same pinned SHA256 is checked; a different release or a modified archive is refused. All other development dependencies must already be installed. For example:
+
+```sh
+cmake -S . -B build -G Ninja \
+  -DOPENZFS_ARCHIVE=/absolute/path/to/zfs-2.4.4.tar.gz \
+  -DOPENZFS_BUILD_JOBS=4 \
+  -DCMAKE_PREFIX_PATH=/absolute/path/to/development-prefix
+cmake --build build --parallel 8
+```
+
+Use ordinary CMake dependency discovery for non-system installations: `CMAKE_PREFIX_PATH`, `CMAKE_INCLUDE_PATH`, `CMAKE_LIBRARY_PATH`, and OpenSSL's `OPENSSL_ROOT_DIR`. `JANSSON_INCLUDE_DIR` and `JANSSON_LIBRARY` override Jansson discovery. The OpenZFS module also accepts `OPENZFS_UDEV_INCLUDE_DIR`/`OPENZFS_UDEV_LIBRARY`, `OPENZFS_BLKID_INCLUDE_DIR`/`OPENZFS_BLKID_LIBRARY`, `OPENZFS_UUID_INCLUDE_DIR`/`OPENZFS_UUID_LIBRARY`, and `OPENZFS_TIRPC_INCLUDE_DIR`/`OPENZFS_TIRPC_LIBRARY`. Select headers and libraries compatible with the build host; CMake does not synthesize a private dependency installation or replace host runtime libraries.
+
+`OPENZFS_MAKE_EXECUTABLE` and `OPENZFS_PATCH_EXECUTABLE` select the upstream GNU make and patch programs when they are not found on `PATH`. The dependency build uses the release's generated configure script; it does not require regenerating it with Autoconf/Automake. OpenZFS administration programs (`zpool`, `zfs`, `zdb`) are not built or installed by default: install matching tools separately and make them available on `PATH` for integration fixtures and maintenance.
+
+Set the compiler with `CC` on the initial configure or `-DCMAKE_C_COMPILER=...`; use the normal CMake compiler/linker cache settings rather than upstream Makefile fragments. Reconfiguration is managed by CMake. `-DBUILD_TESTING=OFF` disables test registration and the Python interpreter requirement, but keeps the native helper build targets available.
 
 ### Pinned native correction and attribution
 
@@ -44,7 +68,7 @@ The OpenZFS implementation and on-disk interfaces come from [OpenZFS](https://gi
 
 Unless a file states otherwise, this repository uses the [CDDL 1.0 license](LICENSE). [NOTICE](NOTICE) preserves the upstream dependency notice without attributing independent contributions to the upstream organization.
 
-`build.sh` applies `patches/zfs-2.4.4-claimed-zil-checkpoint.patch` only to the recognized upstream `zil.c`, and verifies the corrected file hash. During checkpoint rewind, already-claimed intent logs belong to the checkpoint, including their block and BRT references. The correction preserves their original replay limits instead of claiming them again with the new first-import TXG. This is a bundled userspace correction, not a kernel-module patch or permission to use an unrecognized source tree.
+The CMake dependency build applies `patches/zfs-2.4.4-claimed-zil-checkpoint.patch` only to the recognized upstream `zil.c`, and verifies the corrected file hash. During checkpoint rewind, already-claimed intent logs belong to the checkpoint, including their block and BRT references. The correction preserves their original replay limits instead of claiming them again with the new first-import TXG. This is a bundled userspace correction, not a kernel-module patch or permission to use an unrecognized source tree.
 
 ## Prepare an offline maintenance environment
 
@@ -251,18 +275,17 @@ Both native validators accept `--pool-guid DECIMAL --search-dir DIR --output PAT
 
 ## Reproducible tests
 
-These commands are for **disposable test pools**, not your target pool. The fixed integration harnesses create their own mirrored/file-backed devices and retain evidence. Root, working ZFS administration tools, mount support and sufficient independent storage are required. Select an existing persistent test workspace:
+The default CTest suite runs **without root**: five native helpers plus Python unittest discovery of `tests/test_*.py`. It does not create/import/export pools, access production devices, or invoke root integration fixtures. Run it after building:
+
+```sh
+ctest --test-dir build --output-on-failure
+```
+
+The following commands are separate, explicit opt-in tests for **disposable test pools**, not your target pool. They are never registered in default CTest. The fixed integration harnesses create their own mirrored/file-backed devices and retain evidence. Root, working ZFS administration tools, mount support and sufficient independent storage are required. Select an existing persistent test workspace:
 
 ```bash
 TEST_WORK_DIR='/absolute/path/on/independent-persistent-storage/test-work'
 install -d -m 0700 -- "$TEST_WORK_DIR"
-
-./build/test_transform
-./build/test_dedup_fdt_resources
-./build/dedup_fdt_sort_test
-./build/dedup_fdt_workers_test
-./build/rebuild_ddt_quota_test
-python3 -m unittest discover -s tests -p test_offline_dedup_proofs.py
 
 sudo python3 tests/integration.py \
   --converter "$PWD/build/convert-ddt" --work-dir "$TEST_WORK_DIR"

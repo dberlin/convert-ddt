@@ -12,3 +12,5 @@ __pycache__/
 *.bundle
 /.superpowers/
 /.omp/
+/cmake-build-*/
+/CMakeUserPresets.json

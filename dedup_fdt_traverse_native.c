@@ -2,7 +2,7 @@
  * Supplies the pinned traversal object, just like the native DDT/BRT bridges.
  * Existing public traversal entrypoints retain their exact upstream behavior.
  */
-#include ".build/zfs-2.4.4/module/zfs/dmu_traverse.c"
+#include "module/zfs/dmu_traverse.c"
 #include "dedup_fdt_traverse_native.h"
 
 int

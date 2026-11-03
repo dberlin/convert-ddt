@@ -2,7 +2,7 @@
  * Supplies the pinned ddt.o and exposes only the native operations needed for
  * ownership transfer. No zio_free(), refcount decref or data retirement here.
  */
-#include ".build/zfs-2.4.4/module/zfs/ddt.c"
+#include "module/zfs/ddt.c"
 #include "rebuild_bridge.h"
 #include "rebuild_phase.h"
 #include "rebuild_ddt_quota.h"

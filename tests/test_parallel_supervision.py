@@ -40,8 +40,7 @@ class ParallelSupervisionTests(unittest.TestCase):
                 process_sample(99)
 
     def test_diagnostic_writes_do_not_extend_stall_deadline(self):
-        parent = Path(__file__).resolve().parents[1] / ".build"
-        with tempfile.TemporaryDirectory(prefix="validator-idle-", dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix="validator-idle-") as directory:
             runner = Runner.__new__(Runner)
             runner.root = Path(directory)
             runner.report_path = runner.root / "report.json"
@@ -72,8 +71,7 @@ class ParallelSupervisionTests(unittest.TestCase):
             self.assertEqual(runner.report["blocking_pids"], [])
 
     def test_counter_reset_between_phases_and_classes_is_measured_work(self):
-        parent = Path(__file__).resolve().parents[1] / ".build"
-        with tempfile.TemporaryDirectory(prefix="validator-phases-", dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix="validator-phases-") as directory:
             runner = Runner.__new__(Runner)
             runner.root = Path(directory)
             runner.report_path = runner.root / "report.json"

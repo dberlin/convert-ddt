@@ -2,7 +2,7 @@
  * Compile this in place of the archive's brt.o, before libzpool.a.  Keeping
  * the complete pinned translation unit preserves its private caches and ABI.
  */
-#include ".build/zfs-2.4.4/module/zfs/brt.c"
+#include "module/zfs/brt.c"
 #include "rebuild_bridge.h"
 
 int
