@@ -1,11 +1,17 @@
 # convert-ddt
 
+Note: 
+This tool is entirely AI written, but i have run and tested the conversion tool  on multiple pools of several hundred terabytes, totally approximately 6 billion dedup entries across all their tables (IE almost a terabyte worth of dedup tables).  All pools passed full scrubs after being converted.  However, you would still be a complete idiot to not have a backup, and you should still prefer to create new pools with fast dedup enabled rather than convert using these tools.    It was intended for the case where that is impractical.
+
+
 Offline OpenZFS tools for two different operations:
 
 * **`convert-ddt`** migrates existing legacy deduplication tables (DDTs) to version 1. It preserves data block locations, reference counts, snapshots, clones and volume contents. It does not find or consolidate ordinary duplicate data.
 * **`dedup-fdt`** consolidates existing ordinary duplicate data in explicitly selected datasets on a flat version-1 DDT pool. It reads data payloads, rewrites historical references and retires superseded allocations. It is not another table-conversion mode and does not enable dataset `dedup` properties or replace datasets.
 
 Both are native, version-pinned offline writers. A verified backup and exclusive maintenance access are prerequisites, not optional protections supplied by the programs. Neither command automatically runs a scrub.
+
+
 
 ## Platform and build
 
